@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/desktop-logger",
+]
+resolver = "2"
+

@@ -1,0 +1,12 @@
+[package]
+name = "desktop-logger"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Reusable desktop logging helpers for Windows-first Rust applications"
+repository = "https://github.com/Shawlaw/DeskFoundry"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+log = { version = "0.4", features = ["std"] }
+
