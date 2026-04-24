@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/desktop-config",
+    "crates/desktop-i18n",
     "crates/desktop-logger",
 ]
 resolver = "2"
