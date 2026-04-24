@@ -1,14 +1,16 @@
 # desktop-fs
 
-`desktop-fs` is a small reusable crate for filesystem-adjacent helpers commonly needed by desktop tools.
+[English README](./README.en.md)
 
-It focuses on user-facing path and shell behavior rather than full storage abstractions.
+`desktop-fs` 是一个小型可复用 crate，聚焦桌面工具里常见的文件系统周边辅助能力。
 
-## Version
+它更关注用户可见的路径展示与系统壳层行为，而不是做完整的存储抽象。
 
-- current version: **0.1.0**
+## 版本
 
-## API overview
+- 当前版本：**0.1.0**
+
+## API 概览
 
 ### `sanitize_path_component`
 
@@ -16,7 +18,7 @@ It focuses on user-facing path and shell behavior rather than full storage abstr
 pub fn sanitize_path_component(input: &str) -> String
 ```
 
-Converts a user/device/file-derived string into a filesystem-friendly path segment.
+把来自用户 / 设备 / 文件名的字符串转换成更安全的路径片段。
 
 ### `format_bytes`
 
@@ -24,7 +26,7 @@ Converts a user/device/file-derived string into a filesystem-friendly path segme
 pub fn format_bytes(bytes: u64) -> String
 ```
 
-Formats values like:
+把字节数格式化成：
 
 - `512 B`
 - `2.00 KB`
@@ -36,7 +38,7 @@ Formats values like:
 pub fn display_path(path: &Path) -> String
 ```
 
-Returns a user-friendly display string for a path.
+返回适合展示给用户的路径字符串。
 
 ### `display_path_string`
 
@@ -44,7 +46,7 @@ Returns a user-friendly display string for a path.
 pub fn display_path_string(path: &str) -> String
 ```
 
-Useful when a path is already stored as a string.
+适合路径本身已经以字符串形式保存的场景。
 
 ### `normalize_display_path`
 
@@ -52,7 +54,7 @@ Useful when a path is already stored as a string.
 pub fn normalize_display_path(path: &Path) -> PathBuf
 ```
 
-Returns a normalized `PathBuf` suitable for display-oriented persistence.
+返回一个适合“展示导向持久化”的规范化 `PathBuf`。
 
 ### `open_path`
 
@@ -60,20 +62,20 @@ Returns a normalized `PathBuf` suitable for display-oriented persistence.
 pub fn open_path(path: &Path) -> Result<(), String>
 ```
 
-Opens a file or directory with the platform default shell behavior:
+使用当前平台默认壳层行为打开文件或目录：
 
-- Windows: `explorer`
-- macOS: `open`
-- Linux: `xdg-open`
+- Windows：`explorer`
+- macOS：`open`
+- Linux：`xdg-open`
 
-## Windows behavior
+## Windows 行为
 
-This crate also normalizes Windows verbatim paths for display, for example:
+这个 crate 也会把 Windows 的 verbatim path 规范化成更适合展示的形式，例如：
 
 - `\\?\F:\logs\demo` -> `F:\logs\demo`
 - `\\?\UNC\server\share` -> `\\server\share`
 
-## Example
+## 示例
 
 ```rust
 let safe = desktop_fs::sanitize_path_component("serial:1/usb");

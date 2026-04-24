@@ -1,21 +1,19 @@
 # desktop-i18n
 
-[English README](./README.en.md)
+`desktop-i18n` is a lightweight localization helper crate for small Rust desktop applications.
 
-`desktop-i18n` 是一个面向小型 Rust 桌面应用的轻量级本地化辅助 crate。
+It is intentionally simpler than a full enterprise i18n framework and is designed for cases like:
 
-它有意保持简单，不去做企业级 i18n 框架的全套能力，更适合这类场景：
+- embedded JSON locale catalogs
+- English fallback
+- small desktop utilities with a few supported languages
+- simple placeholder replacement
 
-- 内嵌 JSON 语言包
-- 英文兜底回退
-- 支持语言数量不多的小型桌面工具
-- 简单占位符替换
+## Version
 
-## 版本
+- current version: **0.1.0**
 
-- 当前版本：**0.1.0**
-
-## API 概览
+## API overview
 
 ### `I18n::from_json_catalogs`
 
@@ -27,9 +25,9 @@ pub fn from_json_catalogs(
 ) -> Result<I18n, String>
 ```
 
-从内嵌 JSON 字符串构建 i18n 实例。
+Builds an i18n instance from embedded JSON strings.
 
-每个 catalog 需要遵循这样的结构：
+Each catalog must follow this shape:
 
 ```json
 {
@@ -45,7 +43,7 @@ pub fn from_json_catalogs(
 pub fn tr(&self, key: &str) -> String
 ```
 
-在当前语言中查找字符串；如果缺失，则回退到配置的默认语言。
+Looks up a string in the current language and falls back to the configured fallback language.
 
 ### `I18n::tr_args`
 
@@ -53,7 +51,7 @@ pub fn tr(&self, key: &str) -> String
 pub fn tr_args(&self, key: &str, args: &[(&str, String)]) -> String
 ```
 
-执行简单占位符替换，例如：
+Performs simple placeholder replacement such as:
 
 ```text
 Hello {name}
@@ -65,7 +63,7 @@ Hello {name}
 pub fn detect_system_language() -> String
 ```
 
-在可用时返回操作系统语言环境字符串。
+Returns the OS locale string when available.
 
 ### `normalize_language_code`
 
@@ -73,15 +71,15 @@ pub fn detect_system_language() -> String
 pub fn normalize_language_code(language: &str, supported: &[&str], fallback: &str) -> String
 ```
 
-根据受支持语言列表把 locale 归一化。
+Normalizes a locale string against a supported-language list.
 
-例如：
+Examples:
 
 - `en-US` -> `en`
 - `zh` -> `zh-CN`
-- 不支持的 locale -> fallback
+- unsupported locale -> fallback
 
-## 示例
+## Example
 
 ```rust
 let i18n = desktop_i18n::I18n::from_json_catalogs(
@@ -96,13 +94,14 @@ let i18n = desktop_i18n::I18n::from_json_catalogs(
 assert_eq!(i18n.tr("hello"), "你好");
 ```
 
-## 边界
+## Scope
 
-这个 crate 更适合内嵌语言文件的小型桌面工具。
+This crate is best suited to small desktop tools with embedded locale files.
 
-它 **不会**尝试提供：
+It does **not** try to provide:
 
 - ICU message formatting
 - plural rules
-- 运行时外部资源加载约定
-- 大规模翻译工作流工具链
+- runtime external resource loading conventions
+- large-scale translation workflow tooling
+

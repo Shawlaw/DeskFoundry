@@ -1,18 +1,20 @@
 # desktop-logger
 
-`desktop-logger` is a reusable Rust crate for Windows-first desktop applications that need:
+[English README](./README.en.md)
 
-- file + console dual logging
-- log rotation by size
-- panic hook persistence
-- human-readable runtime timestamps
-- filesystem-friendly filename timestamps
+`desktop-logger` 是一个面向 Windows-first 桌面应用的可复用 Rust crate，适合承载这类通用能力：
 
-## Version
+- 文件 + 控制台双写日志
+- 按大小轮转日志
+- 持久化 panic hook
+- 人类可读的运行时时间戳
+- 适合文件名使用的时间戳
 
-- current version: **0.1.0**
+## 版本
 
-## What it provides
+- 当前版本：**0.1.0**
+
+## 提供的能力
 
 ### `init`
 
@@ -20,11 +22,11 @@
 pub fn init(log_path: &Path, console_mode: bool, max_log_size_mb: u32) -> Result<(), String>
 ```
 
-Initializes the global logger.
+初始化全局 logger。
 
-- `log_path`: target log file path
-- `console_mode`: whether to also mirror logs to stdout/stderr
-- `max_log_size_mb`: max file size before rotation
+- `log_path`：日志文件路径
+- `console_mode`：是否同时镜像输出到 stdout/stderr
+- `max_log_size_mb`：轮转前的单文件最大大小
 
 ### `set_panic_hook`
 
@@ -32,7 +34,7 @@ Initializes the global logger.
 pub fn set_panic_hook(log_path: &Path)
 ```
 
-Registers a panic hook that writes panic information and backtrace to the same log file.
+注册 panic hook，把 panic 信息和 backtrace 写入同一个日志文件。
 
 ### `now_timestamp`
 
@@ -40,7 +42,7 @@ Registers a panic hook that writes panic information and backtrace to the same l
 pub fn now_timestamp() -> String
 ```
 
-Returns a timestamp like:
+返回这样的时间戳：
 
 ```text
 2026-04-24 21:30:15.123
@@ -52,13 +54,13 @@ Returns a timestamp like:
 pub fn filename_timestamp() -> String
 ```
 
-Returns a timestamp safe for filenames, for example:
+返回适合文件名使用的时间戳，例如：
 
 ```text
 20260424_213015123
 ```
 
-## Example
+## 示例
 
 ```rust
 use std::path::Path;
@@ -71,8 +73,8 @@ fn main() {
 }
 ```
 
-## Notes
+## 说明
 
-- this crate installs the **global** Rust logger via `log::set_boxed_logger`
-- call `init` only once per process
-- intended for small desktop tools rather than complex multi-sink logging pipelines
+- 这个 crate 会通过 `log::set_boxed_logger` 安装 **全局** Rust logger
+- `init` 在单个进程内只能调用一次
+- 目标场景是小型桌面工具，而不是复杂的多 sink 日志系统

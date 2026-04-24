@@ -1,23 +1,21 @@
 # desktop-config
 
-[English README](./README.en.md)
+`desktop-config` is a small reusable crate for Windows-first Rust desktop apps.
 
-`desktop-config` 是一个面向 Windows-first Rust 桌面应用的小型可复用 crate。
+It focuses on the low-level parts that multiple apps can share safely:
 
-它聚焦在多项目都能安全复用的底层配置基础设施：
+- resolving executable directory
+- portable vs AppData config path selection
+- JSON config read/write helpers
+- plain text config migration helpers
+- writable-directory checks
+- Windows-style absolute path detection
 
-- 获取可执行文件目录
-- 便携模式与 AppData 配置路径选择
-- JSON 配置读写辅助
-- 纯文本配置迁移辅助
-- 目录可写性检查
-- Windows 风格绝对路径识别
+## Version
 
-## 版本
+- current version: **0.1.0**
 
-- 当前版本：**0.1.0**
-
-## API 概览
+## API overview
 
 ### `PortableAppPaths`
 
@@ -37,7 +35,7 @@ pub struct PortableAppPaths {
 pub fn current_exe_dir() -> Result<PathBuf, String>
 ```
 
-返回当前进程对应的可执行文件目录。
+Returns the executable directory of the current process.
 
 ### `resolve_portable_app_paths`
 
@@ -51,10 +49,10 @@ pub fn resolve_portable_app_paths(
 ) -> Result<PortableAppPaths, String>
 ```
 
-解析一套路径策略，包含：
+Resolves a path strategy with:
 
-- 优先使用 exe 所在目录的便携模式
-- 当 exe 目录不可写时自动回退到 AppData
+- executable-directory-first portable mode
+- automatic AppData fallback when the executable directory is not writable
 
 ### `load_json`
 
@@ -62,7 +60,7 @@ pub fn resolve_portable_app_paths(
 pub fn load_json<T: DeserializeOwned>(path: &Path) -> Result<T, String>
 ```
 
-从磁盘加载带类型约束的 JSON。
+Loads typed JSON from disk.
 
 ### `save_pretty_json`
 
@@ -70,11 +68,11 @@ pub fn load_json<T: DeserializeOwned>(path: &Path) -> Result<T, String>
 pub fn save_pretty_json<T: Serialize>(path: &Path, value: &T) -> Result<(), String>
 ```
 
-写入格式化 JSON，并在需要时自动创建父目录。
+Writes pretty-formatted JSON and creates parent directories if needed.
 
 ### `read_to_string` / `write_string`
 
-适合应用有自定义迁移逻辑、需要在解析前先操作原始配置文本的场景。
+Useful when an app has custom migration logic and wants to operate on raw config text before parsing.
 
 ### `is_dir_writable`
 
@@ -82,7 +80,7 @@ pub fn save_pretty_json<T: Serialize>(path: &Path, value: &T) -> Result<(), Stri
 pub fn is_dir_writable(dir: &Path) -> bool
 ```
 
-检查某个目录是否适合用来承载便携配置或日志。
+Checks whether a directory can be used for portable config/log storage.
 
 ### `is_windows_absolute`
 
@@ -90,13 +88,13 @@ pub fn is_dir_writable(dir: &Path) -> bool
 pub fn is_windows_absolute(path: &str) -> bool
 ```
 
-可识别：
+Recognizes:
 
 - `C:\...`
 - `D:/...`
 - `\\server\share\...`
 
-## 示例
+## Example
 
 ```rust
 let paths = desktop_config::resolve_portable_app_paths(
@@ -108,8 +106,9 @@ let paths = desktop_config::resolve_portable_app_paths(
 )?;
 ```
 
-## 边界
+## Scope
 
-这个 crate **不会**定义你应用自身的配置结构。
+This crate intentionally does **not** define your app's config schema.
 
-它的定位是为每个业务项目的 `AppConfig` 提供下层可复用基础设施。
+It is meant to provide the reusable infrastructure layer under each app-specific `AppConfig`.
+

@@ -1,5 +1,7 @@
 # desktop-app-template
 
+[中文 README](./README.md)
+
 Starter scaffold for Windows-first Rust desktop applications built with `egui/eframe`.
 
 This template keeps the release-oriented structure proven in real projects and wires in the shared DeskFoundry crates from the beginning.
@@ -24,3 +26,14 @@ Before shipping a real app, replace:
 - release artifact names
 - metadata in `build.rs`
 
+## Build
+
+```bash
+cargo xwin build --target x86_64-pc-windows-msvc --release
+```
+
+## Package
+
+```bash
+./scripts/package_windows_release.sh
+```
