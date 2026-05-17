@@ -802,6 +802,7 @@ name = "desktop-app-template"
 version = "0.1.0"
 dependencies = [
  "desktop-config",
+ "desktop-egui",
  "desktop-fs",
  "desktop-i18n",
  "desktop-logger",
@@ -817,6 +818,13 @@ dependencies = [
  "directories",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "desktop-egui"
+version = "0.1.0"
+dependencies = [
+ "egui",
 ]
 
 [[package]]

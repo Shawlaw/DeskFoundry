@@ -16,6 +16,7 @@ It exists to collect the reusable infrastructure extracted from real desktop too
 
 - [`desktop-logger`](./crates/desktop-logger/README.en.md) — file + console logging, log rotation, panic hook, timestamps
 - [`desktop-config`](./crates/desktop-config/README.en.md) — portable/AppData config path strategy, JSON config IO, writable-dir helpers
+- [`desktop-egui`](./crates/desktop-egui/README.en.md) — `egui` CJK font fallback and system font discovery
 - [`desktop-i18n`](./crates/desktop-i18n/README.en.md) — lightweight locale catalogs, fallback translation, system locale detection
 - [`desktop-fs`](./crates/desktop-fs/README.en.md) — user-facing path normalization, open-path helpers, byte formatting, safe path components
 
@@ -44,6 +45,7 @@ Current initial SDK versions:
 
 - `desktop-logger` — `0.1.0`
 - `desktop-config` — `0.1.0`
+- `desktop-egui` — `0.1.0`
 - `desktop-i18n` — `0.1.0`
 - `desktop-fs` — `0.1.0`
 
@@ -56,4 +58,3 @@ cargo test
 ## License
 
 [MIT](./LICENSE)
-

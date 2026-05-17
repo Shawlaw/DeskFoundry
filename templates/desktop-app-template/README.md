@@ -11,6 +11,7 @@
 - `#![windows_subsystem = "windows"]` GUI 启动行为
 - logger + panic hook 接线
 - 便携模式 / AppData 配置路径策略
+- `egui` 中文字体 fallback 接线
 - 通过 `build.rs` 注入 Windows 资源元数据
 - 图标目录结构
 - 打包脚本
@@ -35,6 +36,7 @@
 
 - `desktop-logger`
 - `desktop-config`
+- `desktop-egui`
 - `desktop-fs`
 - `desktop-i18n`
 

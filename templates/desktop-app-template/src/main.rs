@@ -36,7 +36,14 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Desktop App Template",
         options,
-        Box::new(move |_cc| {
+        Box::new(move |cc| {
+            match desktop_egui::install_cjk_fallback_fonts(&cc.egui_ctx) {
+                Ok(Some(font_name)) => log::info!("Installed UI font fallback: {font_name}"),
+                Ok(None) => log::warn!(
+                    "No system CJK font fallback found; Chinese text may render incorrectly"
+                ),
+                Err(err) => log::warn!("Failed to install UI font fallback: {err}"),
+            }
             Ok(Box::new(TemplateApp {
                 paths,
             }))

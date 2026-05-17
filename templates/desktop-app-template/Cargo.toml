@@ -7,6 +7,7 @@ description = "Starter template for Windows-first Rust desktop applications"
 
 [dependencies]
 desktop-config = { path = "../../crates/desktop-config" }
+desktop-egui = { path = "../../crates/desktop-egui" }
 desktop-fs = { path = "../../crates/desktop-fs" }
 desktop-i18n = { path = "../../crates/desktop-i18n" }
 desktop-logger = { path = "../../crates/desktop-logger" }

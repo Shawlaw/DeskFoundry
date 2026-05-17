@@ -11,6 +11,7 @@ This template keeps the release-oriented structure proven in real projects and w
 - GUI entry point without default Windows console popup
 - runtime logger and panic hook
 - portable/AppData config path bootstrap
+- `egui` CJK font fallback wiring
 - build metadata embedding via `build.rs`
 - Windows packaging script
 - GitHub Actions release workflow
@@ -37,3 +38,10 @@ cargo xwin build --target x86_64-pc-windows-msvc --release
 ```bash
 ./scripts/package_windows_release.sh
 ```
+## Included DeskFoundry crates
+
+- `desktop-config`
+- `desktop-egui`
+- `desktop-fs`
+- `desktop-i18n`
+- `desktop-logger`

@@ -1,0 +1,9 @@
+[package]
+name = "desktop-egui"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "egui helpers for Windows-first desktop applications"
+
+[dependencies]
+egui = "0.31"
