@@ -49,7 +49,7 @@ DeskFoundry 采用 **monorepo** 形式：
 - `desktop-config` — `0.1.0`
 - `desktop-egui` — `0.1.0`
 - `desktop-i18n` — `0.1.0`
-- `desktop-fs` — `0.1.0`
+- `desktop-fs` — `0.1.1`
 
 ## 本地开发
 

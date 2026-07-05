@@ -4,13 +4,43 @@ use std::{
 };
 
 pub fn sanitize_path_component(input: &str) -> String {
-    input
+    let mut sanitized: String = input
         .chars()
         .map(|ch| match ch {
-            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '.' => ch,
+            '-' | '_' | '.' => ch,
+            ch if ch.is_alphanumeric() => ch,
             _ => '_',
         })
-        .collect()
+        .collect();
+
+    if sanitized.is_empty() {
+        sanitized.push('_');
+    }
+
+    sanitized = sanitized.trim_end_matches([' ', '.']).to_owned();
+    if sanitized.is_empty() {
+        sanitized.push('_');
+    }
+
+    if is_windows_reserved_name(&sanitized) {
+        sanitized.insert(0, '_');
+    }
+
+    sanitized
+}
+
+fn is_windows_reserved_name(component: &str) -> bool {
+    let stem = component
+        .split_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(component);
+    let stem = stem.to_ascii_uppercase();
+
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || stem
+            .strip_prefix("COM")
+            .or_else(|| stem.strip_prefix("LPT"))
+            .is_some_and(|suffix| suffix.len() == 1 && matches!(suffix.as_bytes()[0], b'1'..=b'9'))
 }
 
 pub fn format_bytes(bytes: u64) -> String {
@@ -90,6 +120,21 @@ mod tests {
     #[test]
     fn sanitize_path_component_replaces_unsafe_characters() {
         assert_eq!(sanitize_path_component("serial:1/usb"), "serial_1_usb");
+    }
+
+    #[test]
+    fn sanitize_path_component_preserves_unicode_letters_and_numbers() {
+        assert_eq!(sanitize_path_component("小米 14"), "小米_14");
+        assert_eq!(sanitize_path_component("Pixel-éclair-2"), "Pixel-éclair-2");
+    }
+
+    #[test]
+    fn sanitize_path_component_avoids_empty_and_windows_reserved_names() {
+        assert_eq!(sanitize_path_component(""), "_");
+        assert_eq!(sanitize_path_component("..."), "_");
+        assert_eq!(sanitize_path_component("CON"), "_CON");
+        assert_eq!(sanitize_path_component("nul.log"), "_nul.log");
+        assert_eq!(sanitize_path_component("COM9"), "_COM9");
     }
 
     #[test]

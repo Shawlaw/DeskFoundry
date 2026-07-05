@@ -8,7 +8,7 @@
 
 ## 版本
 
-- 当前版本：**0.1.0**
+- 当前版本：**0.1.1**
 
 ## API 概览
 
@@ -18,7 +18,7 @@
 pub fn sanitize_path_component(input: &str) -> String
 ```
 
-把来自用户 / 设备 / 文件名的字符串转换成更安全的路径片段。
+把来自用户 / 设备 / 文件名的字符串转换成更安全的路径片段。该函数会保留 Unicode 字母和数字，并把空白、路径分隔符、控制字符及其他不适合作为路径片段的字符替换成 `_`。
 
 ### `format_bytes`
 
@@ -80,4 +80,7 @@ pub fn open_path(path: &Path) -> Result<(), String>
 ```rust
 let safe = desktop_fs::sanitize_path_component("serial:1/usb");
 assert_eq!(safe, "serial_1_usb");
+
+let safe = desktop_fs::sanitize_path_component("小米 14");
+assert_eq!(safe, "小米_14");
 ```

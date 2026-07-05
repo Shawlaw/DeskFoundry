@@ -6,7 +6,7 @@ It focuses on user-facing path and shell behavior rather than full storage abstr
 
 ## Version
 
-- current version: **0.1.0**
+- current version: **0.1.1**
 
 ## API overview
 
@@ -16,7 +16,7 @@ It focuses on user-facing path and shell behavior rather than full storage abstr
 pub fn sanitize_path_component(input: &str) -> String
 ```
 
-Converts a user/device/file-derived string into a filesystem-friendly path segment.
+Converts a user/device/file-derived string into a filesystem-friendly path segment. The function preserves Unicode letters and numbers, and replaces whitespace, path separators, control characters, and other unsuitable path-component characters with `_`.
 
 ### `format_bytes`
 
@@ -78,5 +78,8 @@ This crate also normalizes Windows verbatim paths for display, for example:
 ```rust
 let safe = desktop_fs::sanitize_path_component("serial:1/usb");
 assert_eq!(safe, "serial_1_usb");
+
+let safe = desktop_fs::sanitize_path_component("小米 14");
+assert_eq!(safe, "小米_14");
 ```
 

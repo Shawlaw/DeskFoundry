@@ -47,7 +47,7 @@ Current initial SDK versions:
 - `desktop-config` — `0.1.0`
 - `desktop-egui` — `0.1.0`
 - `desktop-i18n` — `0.1.0`
-- `desktop-fs` — `0.1.0`
+- `desktop-fs` — `0.1.1`
 
 ## Local development
 
