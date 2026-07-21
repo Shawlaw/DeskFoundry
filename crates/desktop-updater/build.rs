@@ -7,11 +7,10 @@ fn main() {
         return;
     }
 
-    // `desktop-update-publisher.exe` contains "update" in its file name.
-    // Without an explicit manifest, Windows Installer Detection can treat it
-    // as an installer and Cargo receives ERROR_ELEVATION_REQUIRED (740) when
-    // it tries to launch the ordinary CLI. Explicitly opt into the caller's
-    // token instead of relying on Windows' heuristic.
+    // Windows Installer Detection can classify any executable whose name
+    // contains "update" as an installer. The updater crate also produces test
+    // executables with that name, so embed an explicit asInvoker manifest for
+    // normal, non-elevated execution.
     let manifest =
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("manifest dir")).join("app.manifest");
     println!("cargo:rustc-link-arg=/MANIFEST:EMBED");

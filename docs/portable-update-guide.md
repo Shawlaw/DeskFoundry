@@ -9,7 +9,7 @@
 - `desktop-updater` 不依赖 Tauri、egui 或产品 UI。
 - 应用负责展示状态、决定检查频率，并在启动时确认更新成功。
 - GitHub Raw 只保存小型 JSON 清单和 detached signature；二进制 ZIP 必须从 GitHub Release 下载。
-- 每个产品使用独立 Ed25519 密钥对。私钥仅放在受保护的 GitHub Environment/Secret，公钥编译进客户端。
+- 每个产品使用独立 Ed25519 密钥对。私钥仅放在受保护的 GitHub Environment/Secret，公钥编译进客户端；发布时必须再次验证两者是同一对。
 - 更新器只替换产品声明的文件，绝不清空安装目录；配置、日志、`secrets/`、缓存和用户文件不受影响。
 
 ## 产品描述
@@ -64,7 +64,7 @@ cargo run -p desktop-update-publisher -- keygen
 产品发布工作流先构建并上传 ZIP 到 GitHub Release，再调用共享 Action：
 
 ```yaml
-- uses: Shawlaw/DeskFoundry/actions/publish-portable-update@v0.1.3
+- uses: Shawlaw/DeskFoundry/actions/publish-portable-update@v0.1.4
   with:
     app-id: com.example.myapp
     version: ${{ steps.version.outputs.value }}
@@ -72,9 +72,10 @@ cargo run -p desktop-update-publisher -- keygen
     asset-url: https://github.com/example/MyApp/releases/download/v1.2.3/MyApp_1.2.3_windows_x64_portable.zip
     notes-url: https://github.com/example/MyApp/releases/tag/v1.2.3
     private-key: ${{ secrets.DESKTOP_UPDATE_PRIVATE_KEY }}
+    public-key: ${{ vars.MYAPP_UPDATE_PUBLIC_KEY }}
 ```
 
-调用方 workflow 需要 `permissions: contents: write`，并且应在 release asset 上传成功后才调用 Action。Action 会先按 `desktop-update.toml` 校验 ZIP 的根目录、文件 allow-list 与解压大小，再计算 SHA-256 和精确大小，生成 `updates/stable.json` 与 `updates/stable.json.sig`，签名后提交到产品仓库默认分支。
+调用方 workflow 需要 `permissions: contents: write`，并且应在 release asset 上传成功后才调用 Action。`public-key` 必须传入与已编译客户端一致的 GitHub Actions variable；Action 会在写入文件前从 secret 私钥推导公钥并严格比对，任何不匹配都会使发布失败。随后它按 `desktop-update.toml` 校验 ZIP 的根目录、文件 allow-list 与解压大小，再计算 SHA-256 和精确大小，生成 `updates/stable.json` 与 `updates/stable.json.sig`，签名后提交到产品仓库默认分支。
 
 清单格式如下，签名覆盖该 JSON 文件的**原始 UTF-8 字节**：
 
@@ -102,4 +103,4 @@ cargo run -p desktop-update-publisher -- keygen
 - 测试签名失败、应用 ID/通道/目标不匹配、降级版本和错误 SHA-256。
 - 测试 ZIP traversal、重复条目、未声明文件、缺少声明文件和解压大小限制。
 - 测试文件锁、替换失败、启动未确认时的回滚。
-- 在发布前用真实 ZIP 执行 publisher，并验证清单、签名与公钥可被目标应用验证。
+- 在发布前用真实 ZIP 执行 publisher，并验证清单、签名与公钥可被目标应用验证；生产发布还应验证 Actions secret 私钥与公开 variable 的公钥配对。

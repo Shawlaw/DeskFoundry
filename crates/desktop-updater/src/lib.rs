@@ -307,7 +307,25 @@ pub fn apply_and_restart(
     downloaded: &DownloadedUpdate,
     request: &ApplyRequest,
 ) -> Result<PendingUpdate> {
+    apply_and_restart_with_parent_pid(downloaded, request, std::process::id())
+}
+
+/// Starts a temporary updater helper after `parent_pid` has exited.
+///
+/// Most applications should call [`apply_and_restart`], which uses the current
+/// process. Hosts that coordinate shutdown from a separate process can pass
+/// that process ID explicitly.
+pub fn apply_and_restart_with_parent_pid(
+    downloaded: &DownloadedUpdate,
+    request: &ApplyRequest,
+    parent_pid: u32,
+) -> Result<PendingUpdate> {
     validate_layout(&request.layout)?;
+    if parent_pid == 0 {
+        return Err(UpdateError::new(
+            "Updater parent process ID must be non-zero",
+        ));
+    }
     if !downloaded.package_path.is_file() {
         return Err(UpdateError::new(
             "Downloaded update package no longer exists",
@@ -338,7 +356,7 @@ pub fn apply_and_restart(
     let plan = ApplyPlan {
         schema_version: 1,
         id: id.clone(),
-        parent_pid: std::process::id(),
+        parent_pid,
         package_path: absolute_path(&downloaded.package_path)?,
         install_dir: absolute_path(&request.install_dir)?,
         restart_executable: absolute_path(&request.restart_executable)?,

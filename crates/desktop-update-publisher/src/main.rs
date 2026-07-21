@@ -71,6 +71,7 @@ fn run() -> Result<(), String> {
     let output = PathBuf::from(required(&options, "output")?);
     let signature_output = PathBuf::from(required(&options, "signature-output")?);
     let private_key_env = required(&options, "private-key-env")?;
+    let expected_public_key = options.get("expected-public-key").cloned();
     let notes_url = options.get("notes-url").cloned();
 
     require_https(&asset_url, "asset-url")?;
@@ -102,6 +103,9 @@ fn run() -> Result<(), String> {
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)
         .map_err(|error| format!("Unable to serialize update manifest: {error}"))?;
     let signing_key = signing_key_from_environment(&private_key_env)?;
+    if let Some(expected_public_key) = expected_public_key {
+        verify_expected_public_key(&signing_key, &expected_public_key)?;
+    }
     let signature = STANDARD.encode(signing_key.sign(&manifest_bytes).to_bytes());
 
     write_file(&output, &manifest_bytes)?;
@@ -182,6 +186,19 @@ fn signing_key_from_environment(name: &str) -> Result<SigningKey, String> {
     Ok(SigningKey::from_bytes(&bytes))
 }
 
+fn verify_expected_public_key(signing_key: &SigningKey, value: &str) -> Result<(), String> {
+    let bytes = STANDARD
+        .decode(value.trim())
+        .map_err(|_| "Expected public key is not valid Base64".to_string())?;
+    let bytes: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| "Expected public key must be a 32-byte Ed25519 public key".to_string())?;
+    if signing_key.verifying_key().as_bytes() != &bytes {
+        return Err("Signing key does not match expected public key".to_string());
+    }
+    Ok(())
+}
+
 fn keygen() -> Result<(), String> {
     let mut seed = [0_u8; 32];
     OsRng.fill_bytes(&mut seed);
@@ -221,5 +238,28 @@ fn hex_lower(bytes: &[u8]) -> String {
 }
 
 fn usage() -> String {
-    "usage: desktop-update-publisher keygen | create --app-id ID --channel stable --version VERSION --published-at RFC3339 --target windows-x64 --asset-path ZIP --layout-path desktop-update.toml --asset-url HTTPS_URL --output updates/stable.json --signature-output updates/stable.json.sig --private-key-env ENV_NAME [--notes-url HTTPS_URL]".to_string()
+    "usage: desktop-update-publisher keygen | create --app-id ID --channel stable --version VERSION --published-at RFC3339 --target windows-x64 --asset-path ZIP --layout-path desktop-update.toml --asset-url HTTPS_URL --output updates/stable.json --signature-output updates/stable.json.sig --private-key-env ENV_NAME [--expected-public-key BASE64] [--notes-url HTTPS_URL]".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expected_public_key_must_match_signing_key() {
+        let signing_key = SigningKey::from_bytes(&[0_u8; 32]);
+        let matching = STANDARD.encode(signing_key.verifying_key().as_bytes());
+        let mismatched = STANDARD.encode([1_u8; 32]);
+
+        assert!(verify_expected_public_key(&signing_key, &matching).is_ok());
+        assert!(verify_expected_public_key(&signing_key, &mismatched).is_err());
+    }
+
+    #[test]
+    fn expected_public_key_must_be_base64_encoded_ed25519_key() {
+        let signing_key = SigningKey::from_bytes(&[0_u8; 32]);
+
+        assert!(verify_expected_public_key(&signing_key, "not-base64").is_err());
+        assert!(verify_expected_public_key(&signing_key, &STANDARD.encode([0_u8; 31])).is_err());
+    }
 }

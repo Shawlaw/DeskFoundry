@@ -1,6 +1,6 @@
 [package]
 name = "desktop-updater"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 license = "MIT"
 description = "Signed portable ZIP updates for Windows-first Rust desktop apps"
@@ -8,6 +8,18 @@ repository = "https://github.com/Shawlaw/DeskFoundry"
 readme = "README.md"
 keywords = ["windows", "desktop", "updater", "portable"]
 categories = ["os::windows-apis"]
+
+[[bin]]
+name = "df-test-helper"
+path = "tests/fixtures/helper.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "df-test-app"
+path = "tests/fixtures/app.rs"
+test = false
+bench = false
 
 [dependencies]
 base64 = "0.22"

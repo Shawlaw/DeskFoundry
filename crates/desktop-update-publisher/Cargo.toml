@@ -1,6 +1,6 @@
 [package]
 name = "desktop-update-publisher"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 license = "MIT"
 description = "Create and sign desktop-updater manifests for portable release assets"

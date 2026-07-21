@@ -24,6 +24,9 @@ inputs:
   private-key:
     description: Base64 Ed25519 32-byte seed from a protected GitHub secret.
     required: true
+  public-key:
+    description: Base64 Ed25519 public key compiled into the released client.
+    required: true
   branch:
     description: Default branch that hosts the Raw update pointer.
     default: main
@@ -48,6 +51,7 @@ runs:
       shell: pwsh
       env:
         DESKTOP_UPDATE_PRIVATE_KEY: ${{ inputs.private-key }}
+        DF_PUBLIC_KEY: ${{ inputs.public-key }}
         DF_APP_ID: ${{ inputs.app-id }}
         DF_VERSION: ${{ inputs.version }}
         DF_ASSET_PATH: ${{ inputs.asset-path }}
@@ -81,7 +85,8 @@ runs:
           '--asset-url', $env:DF_ASSET_URL,
           '--output', $env:DF_MANIFEST_PATH,
           '--signature-output', $signaturePath,
-          '--private-key-env', 'DESKTOP_UPDATE_PRIVATE_KEY'
+          '--private-key-env', 'DESKTOP_UPDATE_PRIVATE_KEY',
+          '--expected-public-key', $env:DF_PUBLIC_KEY
         )
         if (-not [string]::IsNullOrWhiteSpace($env:DF_NOTES_URL)) {
           $arguments += @('--notes-url', $env:DF_NOTES_URL)
