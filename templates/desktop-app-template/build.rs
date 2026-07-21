@@ -73,13 +73,14 @@ END
         .arg(&rc_path)
         .arg("/FO")
         .arg(&res_path)
-        .status()
-        .expect("failed to run resource compiler");
+        .status();
 
-    if status.success() {
-        println!("cargo:rustc-link-arg={res_path}");
-    } else {
-        println!("cargo:warning=resource compilation failed, exe will not include icon metadata");
+    match status {
+        Ok(status) if status.success() => println!("cargo:rustc-link-arg={res_path}"),
+        Ok(_) => println!("cargo:warning=resource compilation failed, exe will not include icon metadata"),
+        Err(error) => println!(
+            "cargo:warning=resource compiler could not run ({error}), skipping Windows icon embedding"
+        ),
     }
 }
 
@@ -108,13 +109,19 @@ fn days_to_ymd(mut days: i64) -> (u32, u32, u32) {
 }
 
 fn which(name: &str) -> Option<String> {
-    std::process::Command::new("which")
+    let program = if cfg!(windows) { "where.exe" } else { "which" };
+    std::process::Command::new(program)
         .arg(name)
         .output()
         .ok()
         .and_then(|o| {
             if o.status.success() {
-                let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                let path = String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .next()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string();
                 if !path.is_empty() { Some(path) } else { None }
             } else {
                 None
