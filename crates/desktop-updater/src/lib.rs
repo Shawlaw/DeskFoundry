@@ -843,7 +843,7 @@ fn validate_layout(layout: &PortableLayout) -> Result<()> {
         .chain(layout.preserve_files.iter())
     {
         let normalized = safe_relative_path(file)?;
-        if normalized.to_string_lossy() != file.replace('/', "\\") {
+        if normalized.to_string_lossy().replace('\\', "/") != file.replace('\\', "/") {
             return Err(UpdateError::new(format!(
                 "Portable update file path is not normalized: {file}"
             )));
