@@ -8,6 +8,8 @@ VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
 TARGET="x86_64-pc-windows-msvc"
 BUILD_EXE_NAME="desktop-app-template.exe"
 EXE_NAME="DesktopAppTemplate.exe"
+UPDATER_BUILD_EXE_NAME="desktop-app-template-updater.exe"
+UPDATER_EXE_NAME="DesktopAppTemplate.Updater.exe"
 ZIP_NAME="DesktopAppTemplate-v${VERSION}-win64.zip"
 DIST_DIR="$ROOT/dist"
 PACKAGE_DIR="$DIST_DIR/DesktopAppTemplate-v${VERSION}-win64"
@@ -19,6 +21,7 @@ mkdir -p "$PACKAGE_DIR"
 
 cp "$ROOT/target/$TARGET/release/$BUILD_EXE_NAME" "$DIST_DIR/$EXE_NAME"
 cp "$ROOT/target/$TARGET/release/$BUILD_EXE_NAME" "$PACKAGE_DIR/$EXE_NAME"
+cp "$ROOT/target/$TARGET/release/$UPDATER_BUILD_EXE_NAME" "$PACKAGE_DIR/$UPDATER_EXE_NAME"
 cp "$ROOT/README.md" "$PACKAGE_DIR/README.md"
 cp "$ROOT/config.example.json" "$PACKAGE_DIR/config.example.json"
 
@@ -36,7 +39,7 @@ with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
     for root, _, files in os.walk(package_root):
         for file_name in files:
             full_path = os.path.join(root, file_name)
-            rel_path = os.path.relpath(full_path, dist_dir)
+            rel_path = os.path.relpath(full_path, package_root)
             zf.write(full_path, rel_path)
 PY
 

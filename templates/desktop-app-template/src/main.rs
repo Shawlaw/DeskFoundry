@@ -19,6 +19,10 @@ fn main() -> eframe::Result<()> {
     desktop_logger::init(&paths.app_log_path, console_mode, 2).unwrap_or_else(|err| fatal_error(&err));
     desktop_logger::set_panic_hook(&paths.app_log_path);
 
+    if let Err(error) = desktop_updater::acknowledge_if_requested() {
+        log::warn!("Failed to acknowledge a just-applied update: {error}");
+    }
+
     log::info!("========== Desktop App Template v{} startup ==========", env!("CARGO_PKG_VERSION"));
     log::info!("System language: {}", desktop_i18n::detect_system_language());
     log::info!("Config path: {}", desktop_fs::display_path(&paths.config_path));

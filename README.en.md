@@ -19,6 +19,8 @@ It exists to collect the reusable infrastructure extracted from real desktop too
 - [`desktop-egui`](./crates/desktop-egui/README.en.md) — `egui` CJK font fallback and system font discovery
 - [`desktop-i18n`](./crates/desktop-i18n/README.en.md) — lightweight locale catalogs, fallback translation, system locale detection
 - [`desktop-fs`](./crates/desktop-fs/README.en.md) — user-facing path normalization, open-path helpers, byte formatting, safe path components
+- [`desktop-updater`](./crates/desktop-updater/README.en.md) — signed portable-ZIP checks, downloads, replacement, and startup-ack rollback
+- [`desktop-update-publisher`](./crates/desktop-update-publisher/README.en.md) — release-side CLI for creating and signing GitHub Raw update manifests
 
 ### Template
 
@@ -27,6 +29,7 @@ It exists to collect the reusable infrastructure extracted from real desktop too
 ### Docs
 
 - [`docs/desktop-app-reuse-guide.md`](./docs/desktop-app-reuse-guide.md) — the comparison and reuse summary for LogcatX / clipImg
+- [`docs/portable-update-guide.md`](./docs/portable-update-guide.md) — portable-update integration and publishing with GitHub Raw + Releases
 
 ## Repository strategy
 

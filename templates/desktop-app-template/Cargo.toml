@@ -11,6 +11,7 @@ desktop-egui = { path = "../../crates/desktop-egui" }
 desktop-fs = { path = "../../crates/desktop-fs" }
 desktop-i18n = { path = "../../crates/desktop-i18n" }
 desktop-logger = { path = "../../crates/desktop-logger" }
+desktop-updater = { path = "../../crates/desktop-updater" }
 eframe = "0.31"
 log = { version = "0.4", features = ["std"] }
 rfd = "0.15"

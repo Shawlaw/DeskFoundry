@@ -121,4 +121,3 @@ fn which(name: &str) -> Option<String> {
             }
         })
 }
-

@@ -1,0 +1,100 @@
+name: Publish portable update manifest
+description: Create, sign, and commit the GitHub Raw update manifest after a portable ZIP has been uploaded to a GitHub Release.
+
+inputs:
+  app-id:
+    description: Stable product identifier compiled into the client.
+    required: true
+  version:
+    description: SemVer version represented by the uploaded ZIP.
+    required: true
+  asset-path:
+    description: Local path to the already-uploaded portable ZIP.
+    required: true
+  asset-url:
+    description: HTTPS GitHub Release download URL for the ZIP.
+    required: true
+  layout-path:
+    description: Product-relative desktop-update.toml that allow-lists ZIP entries.
+    default: desktop-update.toml
+    required: false
+  notes-url:
+    description: Optional HTTPS GitHub Release notes URL.
+    required: false
+  private-key:
+    description: Base64 Ed25519 32-byte seed from a protected GitHub secret.
+    required: true
+  branch:
+    description: Default branch that hosts the Raw update pointer.
+    default: main
+    required: false
+  channel:
+    description: Release channel.
+    default: stable
+    required: false
+  target:
+    description: Update target.
+    default: windows-x64
+    required: false
+  manifest-path:
+    description: Repository-relative Raw manifest path.
+    default: updates/stable.json
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Create signed Raw update manifest
+      shell: pwsh
+      env:
+        DESKTOP_UPDATE_PRIVATE_KEY: ${{ inputs.private-key }}
+        DF_APP_ID: ${{ inputs.app-id }}
+        DF_VERSION: ${{ inputs.version }}
+        DF_ASSET_PATH: ${{ inputs.asset-path }}
+        DF_ASSET_URL: ${{ inputs.asset-url }}
+        DF_LAYOUT_PATH: ${{ inputs.layout-path }}
+        DF_NOTES_URL: ${{ inputs.notes-url }}
+        DF_BRANCH: ${{ inputs.branch }}
+        DF_CHANNEL: ${{ inputs.channel }}
+        DF_TARGET: ${{ inputs.target }}
+        DF_MANIFEST_PATH: ${{ inputs.manifest-path }}
+      run: |
+        if ($env:DF_MANIFEST_PATH -notmatch '^[A-Za-z0-9._/-]+$' -or $env:DF_MANIFEST_PATH.StartsWith('/') -or $env:DF_MANIFEST_PATH.Contains('..')) {
+          throw 'manifest-path must be a safe repository-relative path'
+        }
+        $actionRoot = (Resolve-Path $env:GITHUB_ACTION_PATH).Path
+        $deskFoundryRoot = (Resolve-Path (Join-Path $actionRoot '../..')).Path
+        $signaturePath = "$env:DF_MANIFEST_PATH.sig"
+        $publishedAt = (Get-Date).ToUniversalTime().ToString('o')
+        git fetch origin $env:DF_BRANCH
+        git checkout -B $env:DF_BRANCH "origin/$env:DF_BRANCH"
+        $arguments = @(
+          'run', '--locked', '--manifest-path', (Join-Path $deskFoundryRoot 'Cargo.toml'), '-p', 'desktop-update-publisher', '--',
+          'create',
+          '--app-id', $env:DF_APP_ID,
+          '--channel', $env:DF_CHANNEL,
+          '--version', $env:DF_VERSION,
+          '--published-at', $publishedAt,
+          '--target', $env:DF_TARGET,
+          '--asset-path', $env:DF_ASSET_PATH,
+          '--layout-path', $env:DF_LAYOUT_PATH,
+          '--asset-url', $env:DF_ASSET_URL,
+          '--output', $env:DF_MANIFEST_PATH,
+          '--signature-output', $signaturePath,
+          '--private-key-env', 'DESKTOP_UPDATE_PRIVATE_KEY'
+        )
+        if (-not [string]::IsNullOrWhiteSpace($env:DF_NOTES_URL)) {
+          $arguments += @('--notes-url', $env:DF_NOTES_URL)
+        }
+        & cargo @arguments
+        if ($LASTEXITCODE -ne 0) { throw 'desktop-update-publisher failed' }
+        git add -- $env:DF_MANIFEST_PATH $signaturePath
+        git diff --cached --quiet
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host 'Update manifest is unchanged.'
+          exit 0
+        }
+        git config user.name 'github-actions[bot]'
+        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+        git commit -m "chore(update): publish $env:DF_APP_ID $env:DF_VERSION"
+        git push origin "HEAD:$env:DF_BRANCH"

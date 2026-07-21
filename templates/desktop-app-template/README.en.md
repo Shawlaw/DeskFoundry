@@ -15,6 +15,7 @@ This template keeps the release-oriented structure proven in real projects and w
 - build metadata embedding via `build.rs`
 - Windows packaging script
 - GitHub Actions release workflow
+- `desktop-updater` helper binary, startup acknowledgement, and flat portable-ZIP convention
 
 ## Expected customization
 
@@ -26,6 +27,7 @@ Before shipping a real app, replace:
 - README content
 - release artifact names
 - metadata in `build.rs`
+- product ID, Raw URLs, public key, and allow-list in `desktop-update.toml`
 
 ## Build
 
@@ -45,3 +47,4 @@ cargo xwin build --target x86_64-pc-windows-msvc --release
 - `desktop-fs`
 - `desktop-i18n`
 - `desktop-logger`
+- `desktop-updater`

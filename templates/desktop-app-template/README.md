@@ -16,6 +16,7 @@
 - 图标目录结构
 - 打包脚本
 - GitHub Actions tag release 工作流
+- `desktop-updater` helper 二进制、启动确认与平铺 portable ZIP 约定
 - README / CHANGELOG / LICENSE / 配置示例布局
 
 ## 重命名检查清单
@@ -29,6 +30,7 @@
 - README 文案
 - release zip 命名
 - GitHub workflow 里的发布产物命名
+- `desktop-update.toml` 中的产品 ID、Raw URL、公钥和 allow-list
 
 ## 已接入的 SDK
 
@@ -39,6 +41,7 @@
 - `desktop-egui`
 - `desktop-fs`
 - `desktop-i18n`
+- `desktop-updater`
 
 ## 构建
 

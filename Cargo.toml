@@ -5,5 +5,7 @@ members = [
     "crates/desktop-fs",
     "crates/desktop-i18n",
     "crates/desktop-logger",
+    "crates/desktop-update-publisher",
+    "crates/desktop-updater",
 ]
 resolver = "2"

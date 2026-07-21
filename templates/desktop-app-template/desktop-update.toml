@@ -1,0 +1,9 @@
+# Copy this file into a real product and replace all placeholder values.
+app_id = "com.example.desktop-app-template"
+channel = "stable"
+manifest_url = "https://raw.githubusercontent.com/example/DesktopAppTemplate/main/updates/stable.json"
+signature_url = "https://raw.githubusercontent.com/example/DesktopAppTemplate/main/updates/stable.json.sig"
+public_key_base64 = "REPLACE_WITH_PRODUCT_ED25519_PUBLIC_KEY"
+archive_root = ""
+replace_files = ["DesktopAppTemplate.exe", "DesktopAppTemplate.Updater.exe"]
+preserve_files = []
