@@ -338,7 +338,7 @@ dependencies = [
 
 [[package]]
 name = "desktop-update-publisher"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64",
  "desktop-updater",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "desktop-updater"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64",
  "ed25519-dalek",

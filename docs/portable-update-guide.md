@@ -64,7 +64,7 @@ cargo run -p desktop-update-publisher -- keygen
 产品发布工作流先构建并上传 ZIP 到 GitHub Release，再调用共享 Action：
 
 ```yaml
-- uses: Shawlaw/DeskFoundry/actions/publish-portable-update@v0.1.1
+- uses: Shawlaw/DeskFoundry/actions/publish-portable-update@v0.1.2
   with:
     app-id: com.example.myapp
     version: ${{ steps.version.outputs.value }}
