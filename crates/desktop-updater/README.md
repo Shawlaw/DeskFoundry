@@ -6,4 +6,6 @@
 
 它不绑定 Tauri、egui 或任何 UI 框架。应用只负责展示状态、在启动时调用 `acknowledge_if_requested`，并提供一个极薄的 updater helper 二进制。
 
+`check_signed` 会返回经验证的清单与签名字节，配合 `UpdateCandidate::from_persisted_bytes` 可在应用重启后离线重建下载候选（重验签名，无需联网）；下载超时按声明的包大小动态放宽，慢速但仍在推进的传输不会被固定预算中断。
+
 第一版只支持 Windows x64 portable ZIP；安装器、macOS 与 Linux 由后续 apply backend 处理。
