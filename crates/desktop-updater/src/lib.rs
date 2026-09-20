@@ -28,6 +28,16 @@ pub const DEFAULT_MAX_DOWNLOAD_BYTES: u64 = 1024 * 1024 * 1024;
 pub const DEFAULT_MAX_EXTRACT_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const HELPER_ACK_ENV: &str = "DESKTOP_UPDATER_ACK_PATH";
 const HELPER_WAIT_TIMEOUT: Duration = Duration::from_secs(60);
+const MANIFEST_FETCH_LIMIT_BYTES: u64 = 512 * 1024;
+const SIGNATURE_FETCH_LIMIT_BYTES: u64 = 16 * 1024;
+const METADATA_TIMEOUT: Duration = Duration::from_secs(30);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Slow-but-progressing package transfers must not share the fixed metadata
+/// budget; the download client scales its total timeout with the declared
+/// package size at this minimum transfer rate.
+const MIN_DOWNLOAD_BYTES_PER_SECOND: u64 = 25 * 1024;
+const MIN_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
+const MAX_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(3600);
 
 pub type Result<T> = std::result::Result<T, UpdateError>;
 
@@ -133,6 +143,29 @@ impl UpdateCandidate {
     pub fn notes_url(&self) -> Option<&str> {
         self.manifest.notes_url.as_deref()
     }
+
+    /// Recreates a download candidate from persisted [`SignedCheck`] bytes
+    /// without any network I/O. The detached signature is verified again
+    /// against the pinned public key, so tampered storage fails verification
+    /// instead of redirecting the download to an unsigned source. Returns
+    /// `Ok(None)` when the signed manifest is valid but no longer newer than
+    /// the running version.
+    pub fn from_persisted_bytes(
+        config: &UpdateConfig,
+        manifest_bytes: &[u8],
+        signature_bytes: &[u8],
+    ) -> Result<Option<Self>> {
+        match signed_check_from_bytes(
+            config,
+            manifest_bytes.to_vec(),
+            signature_bytes.to_vec(),
+        )?
+        .result
+        {
+            CheckResult::UpdateAvailable(candidate) => Ok(Some(candidate)),
+            CheckResult::UpToDate => Ok(None),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -141,14 +174,59 @@ pub enum CheckResult {
     UpdateAvailable(UpdateCandidate),
 }
 
+/// A successful manifest check together with the exact bytes that were
+/// signature-verified. Persisting these bytes lets an application restore the
+/// candidate after a restart without repeating network I/O; restore must go
+/// through [`UpdateCandidate::from_persisted_bytes`], which re-verifies the
+/// detached signature offline, because [`download`] only verifies the package
+/// hash against the manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedCheck {
+    pub result: CheckResult,
+    pub manifest_bytes: Vec<u8>,
+    pub signature_bytes: Vec<u8>,
+}
+
 /// Checks a detached, signed JSON manifest. The caller should run this in its
 /// own background task because this API deliberately uses blocking I/O.
 pub fn check(config: &UpdateConfig) -> Result<CheckResult> {
+    Ok(check_signed(config)?.result)
+}
+
+/// Like [`check`], but also returns the exact verified manifest and signature
+/// bytes so callers can persist them for an offline [`SignedCheck`] restore.
+pub fn check_signed(config: &UpdateConfig) -> Result<SignedCheck> {
     let client = build_http_client(config)?;
-    let manifest_bytes = fetch_small(&client, &cache_busted_url(&config.manifest_url), 512 * 1024)?;
-    let signature_bytes =
-        fetch_small(&client, &cache_busted_url(&config.signature_url), 16 * 1024)?;
+    let manifest_bytes = fetch_small(
+        &client,
+        &cache_busted_url(&config.manifest_url),
+        MANIFEST_FETCH_LIMIT_BYTES,
+    )?;
+    let signature_bytes = fetch_small(
+        &client,
+        &cache_busted_url(&config.signature_url),
+        SIGNATURE_FETCH_LIMIT_BYTES,
+    )?;
+    signed_check_from_bytes(config, manifest_bytes, signature_bytes)
+}
+
+/// Verifies manifest and signature bytes and applies the same version rule as
+/// [`check_signed`] without any network I/O.
+fn signed_check_from_bytes(
+    config: &UpdateConfig,
+    manifest_bytes: Vec<u8>,
+    signature_bytes: Vec<u8>,
+) -> Result<SignedCheck> {
     let manifest = verify_signed_manifest(config, &manifest_bytes, &signature_bytes)?;
+    let result = newer_candidate_result(config, manifest)?;
+    Ok(SignedCheck {
+        result,
+        manifest_bytes,
+        signature_bytes,
+    })
+}
+
+fn newer_candidate_result(config: &UpdateConfig, manifest: UpdateManifest) -> Result<CheckResult> {
     let current = Version::parse(&config.current_version)
         .map_err(|error| UpdateError::new(format!("Invalid current app version: {error}")))?;
     let candidate = Version::parse(&manifest.version)
@@ -686,7 +764,38 @@ fn cleanup_success(plan: &ApplyPlan, plan_path: &Path) {
 }
 
 fn build_http_client(config: &UpdateConfig) -> Result<Client> {
-    let mut builder = Client::builder().timeout(Duration::from_secs(30));
+    let mut builder = Client::builder()
+        .timeout(METADATA_TIMEOUT)
+        .connect_timeout(CONNECT_TIMEOUT);
+    if let Some(proxy_url) = config
+        .proxy_url
+        .as_deref()
+        .filter(|url| !url.trim().is_empty())
+    {
+        let proxy = Proxy::all(proxy_url)
+            .map_err(|error| UpdateError::new(format!("Invalid update proxy: {error}")))?;
+        builder = builder.proxy(proxy);
+    }
+    builder
+        .build()
+        .map_err(|error| UpdateError::new(format!("Unable to create update HTTP client: {error}")))
+}
+
+/// Total download budget for a declared package size: at least one minute,
+/// scaled with size at [`MIN_DOWNLOAD_BYTES_PER_SECOND`], capped at one hour.
+fn download_timeout_for_bytes(asset_bytes: u64) -> Duration {
+    let scaled_seconds = asset_bytes / MIN_DOWNLOAD_BYTES_PER_SECOND;
+    let seconds = scaled_seconds.clamp(
+        MIN_DOWNLOAD_TIMEOUT.as_secs(),
+        MAX_DOWNLOAD_TIMEOUT.as_secs(),
+    );
+    Duration::from_secs(seconds)
+}
+
+fn build_download_client(config: &UpdateConfig, asset_bytes: u64) -> Result<Client> {
+    let mut builder = Client::builder()
+        .connect_timeout(CONNECT_TIMEOUT)
+        .timeout(download_timeout_for_bytes(asset_bytes));
     if let Some(proxy_url) = config
         .proxy_url
         .as_deref()
@@ -734,7 +843,7 @@ fn download_to_path(
     on_progress: &mut dyn FnMut(u64, u64),
 ) -> Result<()> {
     require_https_url(&asset.url, "Update asset URL")?;
-    let client = build_http_client(config)?;
+    let client = build_download_client(config, asset.size)?;
     let mut response = client
         .get(&asset.url)
         .header(CACHE_CONTROL, "no-cache")
@@ -1151,11 +1260,15 @@ mod tests {
     }
 
     fn manifest() -> UpdateManifest {
+        manifest_with_version("1.0.1")
+    }
+
+    fn manifest_with_version(version: &str) -> UpdateManifest {
         UpdateManifest {
             schema_version: 1,
             app_id: "com.example.test".to_string(),
             channel: "stable".to_string(),
-            version: "1.0.1".to_string(),
+            version: version.to_string(),
             published_at: "2026-07-21T00:00:00Z".to_string(),
             target: "windows-x64".to_string(),
             asset: UpdateAsset {
@@ -1165,6 +1278,11 @@ mod tests {
             },
             notes_url: None,
         }
+    }
+
+    fn signed_bytes(signing_key: &SigningKey, manifest_bytes: &[u8]) -> Vec<u8> {
+        let signature = signing_key.sign(manifest_bytes);
+        format!("{}\n", STANDARD.encode(signature.to_bytes())).into_bytes()
     }
 
     #[test]
@@ -1182,6 +1300,77 @@ mod tests {
         let mut changed = manifest_bytes.clone();
         changed[0] = b'[';
         assert!(verify_signed_manifest(&config, &changed, signature.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn signed_check_preserves_the_exact_verified_bytes() {
+        let signing_key = SigningKey::from_bytes(&[7; 32]);
+        let public_key = STANDARD.encode(signing_key.verifying_key().as_bytes());
+        let config = test_config(public_key);
+        let manifest_bytes = serde_json::to_vec(&manifest()).expect("manifest JSON");
+        let signature_bytes = signed_bytes(&signing_key, &manifest_bytes);
+
+        let signed = signed_check_from_bytes(&config, manifest_bytes.clone(), signature_bytes.clone())
+            .expect("signed check");
+        assert_eq!(signed.manifest_bytes, manifest_bytes);
+        assert_eq!(signed.signature_bytes, signature_bytes);
+        assert!(matches!(signed.result, CheckResult::UpdateAvailable(_)));
+    }
+
+    #[test]
+    fn persisted_bytes_round_trip_through_the_offline_constructor() {
+        let signing_key = SigningKey::from_bytes(&[7; 32]);
+        let public_key = STANDARD.encode(signing_key.verifying_key().as_bytes());
+        let config = test_config(public_key);
+        let manifest_bytes = serde_json::to_vec(&manifest()).expect("manifest JSON");
+        let signature_bytes = signed_bytes(&signing_key, &manifest_bytes);
+
+        let restored =
+            UpdateCandidate::from_persisted_bytes(&config, &manifest_bytes, &signature_bytes)
+                .expect("offline verification");
+        assert_eq!(restored.expect("newer candidate").version(), "1.0.1");
+
+        let older_bytes = serde_json::to_vec(&manifest_with_version("0.9.0"))
+            .expect("older manifest JSON");
+        let older_signature = signed_bytes(&signing_key, &older_bytes);
+        let restored =
+            UpdateCandidate::from_persisted_bytes(&config, &older_bytes, &older_signature)
+                .expect("offline verification");
+        assert!(restored.is_none());
+    }
+
+    #[test]
+    fn tampered_persisted_bytes_fail_offline_verification() {
+        let signing_key = SigningKey::from_bytes(&[7; 32]);
+        let public_key = STANDARD.encode(signing_key.verifying_key().as_bytes());
+        let config = test_config(public_key);
+        let manifest_bytes = serde_json::to_vec(&manifest()).expect("manifest JSON");
+        let signature_bytes = signed_bytes(&signing_key, &manifest_bytes);
+
+        let mut tampered_manifest = manifest_bytes.clone();
+        tampered_manifest[0] = b' ';
+        assert!(
+            UpdateCandidate::from_persisted_bytes(&config, &tampered_manifest, &signature_bytes)
+                .is_err()
+        );
+
+        let truncated_signature = &signature_bytes[..signature_bytes.len() - 8];
+        assert!(
+            UpdateCandidate::from_persisted_bytes(&config, &manifest_bytes, truncated_signature)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn download_timeout_scales_with_package_size_and_stays_bounded() {
+        assert_eq!(download_timeout_for_bytes(0), MIN_DOWNLOAD_TIMEOUT);
+        assert_eq!(download_timeout_for_bytes(1024), MIN_DOWNLOAD_TIMEOUT);
+        // 25 MiB at the 25 KiB/s floor is exactly 1024 seconds.
+        assert_eq!(
+            download_timeout_for_bytes(25 * 1024 * 1024),
+            Duration::from_secs(1024)
+        );
+        assert_eq!(download_timeout_for_bytes(u64::MAX), MAX_DOWNLOAD_TIMEOUT);
     }
 
     #[test]
