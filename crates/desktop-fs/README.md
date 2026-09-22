@@ -84,3 +84,8 @@ assert_eq!(safe, "serial_1_usb");
 let safe = desktop_fs::sanitize_path_component("小米 14");
 assert_eq!(safe, "小米_14");
 ```
+
+## 更新记录
+
+- v0.1.2：新增 `desktop_fs::atomic_write` —— 临时文件 + fsync + 原子替换的安全状态写入。
+- v0.1.1：初始公开能力。

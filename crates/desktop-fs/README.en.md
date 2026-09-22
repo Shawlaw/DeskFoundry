@@ -83,3 +83,8 @@ let safe = desktop_fs::sanitize_path_component("小米 14");
 assert_eq!(safe, "小米_14");
 ```
 
+
+## Changelog
+
+- v0.1.2: add `desktop_fs::atomic_write` — safe state persistence via temp file + fsync + atomic replace.
+- v0.1.1: initial public surface.
