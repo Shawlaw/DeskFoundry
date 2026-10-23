@@ -19,6 +19,7 @@ It exists to collect the reusable infrastructure extracted from real desktop too
 - [`desktop-egui`](./crates/desktop-egui/README.en.md) — `egui` CJK font fallback and system font discovery
 - [`desktop-i18n`](./crates/desktop-i18n/README.en.md) — lightweight locale catalogs, fallback translation, system locale detection
 - [`desktop-fs`](./crates/desktop-fs/README.en.md) — user-facing path normalization, open-path helpers, byte formatting, safe path components
+- [`desktop-notify`](./crates/desktop-notify/README.en.md) — portable Windows toasts: AUMID registration, brand icon, send and removal
 - [`desktop-updater`](./crates/desktop-updater/README.en.md) — signed portable-ZIP checks, downloads, replacement, and startup-ack rollback
 - [`desktop-update-publisher`](./crates/desktop-update-publisher/README.en.md) — release-side CLI for creating and signing GitHub Raw update manifests
 
@@ -30,6 +31,7 @@ It exists to collect the reusable infrastructure extracted from real desktop too
 
 - [`docs/desktop-app-reuse-guide.md`](./docs/desktop-app-reuse-guide.md) — the comparison and reuse summary for LogcatX / clipImg
 - [`docs/portable-update-guide.md`](./docs/portable-update-guide.md) — portable-update integration and publishing with GitHub Raw + Releases
+- [`docs/portable-toast-guide.md`](./docs/portable-toast-guide.md) — Windows toast integration and AUMID registration for portable apps
 
 ## Repository strategy
 
@@ -51,6 +53,7 @@ Current initial SDK versions:
 - `desktop-egui` — `0.1.0`
 - `desktop-i18n` — `0.1.0`
 - `desktop-fs` — `0.1.1`
+- `desktop-notify` — `0.1.0`
 
 ## Local development
 

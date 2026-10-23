@@ -21,6 +21,7 @@ DeskFoundry 是一个 **Windows-first** 的 Rust 桌面应用 monorepo。
 - [`desktop-egui`](./crates/desktop-egui/README.md) — `egui` CJK 字体 fallback、系统字体探测
 - [`desktop-i18n`](./crates/desktop-i18n/README.md) — 轻量级语言资源、回退翻译、系统语言检测
 - [`desktop-fs`](./crates/desktop-fs/README.md) — 面向用户展示的路径规范化、打开文件/目录、字节大小格式化
+- [`desktop-notify`](./crates/desktop-notify/README.md) — portable Windows toast：AUMID 注册、品牌图标、发送与注销清理
 - [`desktop-updater`](./crates/desktop-updater/README.md) — 已签名 portable ZIP 的检查、下载、替换与启动确认回滚
 - [`desktop-update-publisher`](./crates/desktop-update-publisher/README.md) — 生成、签名和校验 GitHub Raw 更新清单的发布侧 CLI
 
@@ -32,6 +33,7 @@ DeskFoundry 是一个 **Windows-first** 的 Rust 桌面应用 monorepo。
 
 - [`docs/desktop-app-reuse-guide.md`](./docs/desktop-app-reuse-guide.md) — LogcatX / clipImg 的共性总结与可复用拆分依据
 - [`docs/portable-update-guide.md`](./docs/portable-update-guide.md) — GitHub Raw + GitHub Release 的 portable 更新接入与发布规范
+- [`docs/portable-toast-guide.md`](./docs/portable-toast-guide.md) — portable 应用的 Windows toast 接入与 AUMID 注册规范
 
 ## 仓库策略
 
@@ -53,6 +55,7 @@ DeskFoundry 采用 **monorepo** 形式：
 - `desktop-egui` — `0.1.0`
 - `desktop-i18n` — `0.1.0`
 - `desktop-fs` — `0.1.1`
+- `desktop-notify` — `0.1.0`
 
 ## 本地开发
 
