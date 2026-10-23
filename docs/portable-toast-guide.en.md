@@ -13,7 +13,9 @@ non-Windows platforms the crate compiles as a stub).
   portable apps instead write `HKCU\Software\Classes\AppUserModelId\<AUMID>` with
   `DisplayName` and `IconUri` values — the same mechanism Firefox, Chrome, and BurntToast
   use. Without it, toasts fail or land under the wrong identity.
-- An AUMID must be at most 128 characters, contain no spaces, and **never change once
+- An AUMID must be at most 128 UTF-16 code units and contain no whitespace,
+  control characters, or path separators (a `\` or `/` would escape the
+  AppUserModelId registry branch), and it must **never change once
   released**: Windows notification settings and per-app mute state hang off it. Dev builds
   should use a separate AUMID (for example a `.dev` suffix) and display name so they group
   separately and can be muted independently.

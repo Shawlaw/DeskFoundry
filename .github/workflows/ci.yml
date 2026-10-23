@@ -24,3 +24,15 @@ jobs:
 
       - name: Check desktop app template
         run: cargo check --manifest-path templates/desktop-app-template/Cargo.toml --bins
+
+  non-windows:
+    name: Non-Windows stub check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check desktop-notify stubs
+        run: cargo check -p desktop-notify

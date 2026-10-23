@@ -43,6 +43,9 @@
 - `desktop-i18n`
 - `desktop-updater`
 
+其它 DeskFoundry crate 也可以按需用同样方式接入，例如
+`desktop-notify`（portable Windows toast 通知）只需加一行本地 path 依赖。
+
 ## 构建
 
 ```bash

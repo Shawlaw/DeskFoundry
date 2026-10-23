@@ -7,8 +7,10 @@
 //! `HKCU\Software\Classes\AppUserModelId\<AUMID>`. This crate encapsulates
 //! that mechanism plus the WinRT send path:
 //!
-//! - AUMID validation (at most 128 characters, no spaces) and idempotent
-//!   HKCU registration with `DisplayName` and an optional `IconUri`.
+//! - AUMID validation (at most 128 UTF-16 code units; no whitespace,
+//!   control characters, or path separators — a separator would escape the
+//!   AppUserModelId registry branch) and idempotent HKCU registration with
+//!   `DisplayName` and an optional `IconUri`.
 //! - Materializing an embedded brand-icon PNG into a caller-chosen cache
 //!   directory, rewriting only when the bytes actually change.
 //! - Sending toasts with COM apartment handling on the calling thread.
@@ -26,7 +28,7 @@
 
 use std::path::PathBuf;
 
-/// Windows requires AppUserModelIDs of at most 128 characters.
+/// Windows requires AppUserModelIDs of at most 128 UTF-16 code units.
 pub const MAX_APP_USER_MODEL_ID_LEN: usize = 128;
 
 /// File name the brand icon is materialized to inside
@@ -68,18 +70,31 @@ pub struct ToastMessage<'a> {
 }
 
 /// Validates an AppUserModelID against the Windows constraints: non-empty,
-/// at most [`MAX_APP_USER_MODEL_ID_LEN`] characters, no spaces.
+/// at most [`MAX_APP_USER_MODEL_ID_LEN`] UTF-16 code units, and free of
+/// whitespace, control characters, and path separators. The separator and
+/// control-character rules are stricter than Microsoft's "no spaces"
+/// wording, because this crate derives registry key paths from the id: a
+/// `\` or `/` would address a nested branch, and an embedded NUL truncates
+/// the path handed to the registry API.
 pub fn validate_app_user_model_id(id: &str) -> Result<(), String> {
     if id.is_empty() {
         return Err("AppUserModelID must not be empty".to_string());
     }
-    if id.chars().count() > MAX_APP_USER_MODEL_ID_LEN {
+    // The registry and the shell compare UTF-16, so a non-BMP character
+    // counts as two units; chars().count() would understate the length.
+    if id.encode_utf16().count() > MAX_APP_USER_MODEL_ID_LEN {
         return Err(format!(
-            "AppUserModelID must be at most {MAX_APP_USER_MODEL_ID_LEN} characters"
+            "AppUserModelID must be at most {MAX_APP_USER_MODEL_ID_LEN} UTF-16 code units"
         ));
     }
-    if id.contains(' ') {
-        return Err("AppUserModelID must not contain spaces".to_string());
+    if id
+        .chars()
+        .any(|c| c.is_control() || c.is_whitespace() || matches!(c, '\\' | '/'))
+    {
+        return Err(
+            "AppUserModelID must not contain whitespace, control characters, or path separators"
+                .to_string(),
+        );
     }
     Ok(())
 }
@@ -91,8 +106,10 @@ fn icon_file_path(icon: &ToastIcon) -> PathBuf {
 /// Materializes the brand icon so the registry `IconUri` and the toast can
 /// reference a stable on-disk file. The file is rewritten only when its
 /// bytes differ from `icon.png` (a length check alone misses same-size icon
-/// updates). Any failure yields `None`: registration then omits `IconUri`
-/// and toasts still send with the generic Windows icon.
+/// updates), and the rewrite goes through a temporary file plus rename so a
+/// concurrent reader never observes a torn PNG. Any failure yields `None`:
+/// registration then omits `IconUri` and toasts still send with the generic
+/// Windows icon.
 fn materialize_icon(icon: &ToastIcon) -> Option<PathBuf> {
     let path = icon_file_path(icon);
     let current = std::fs::read(&path).ok();
@@ -100,7 +117,18 @@ fn materialize_icon(icon: &ToastIcon) -> Option<PathBuf> {
         return Some(path);
     }
     std::fs::create_dir_all(&icon.cache_dir).ok()?;
-    std::fs::write(&path, icon.png).ok()?;
+    let temp = icon
+        .cache_dir
+        .join(format!(".{TOAST_ICON_FILE_NAME}.tmp-{}", std::process::id()));
+    let written = (|| -> Option<()> {
+        std::fs::write(&temp, icon.png).ok()?;
+        std::fs::rename(&temp, &path).ok()?;
+        Some(())
+    })();
+    if written.is_none() {
+        let _ = std::fs::remove_file(&temp);
+        return None;
+    }
     Some(path)
 }
 
@@ -258,10 +286,14 @@ mod windows_impl {
 
     /// Removes the HKCU AppUserModelID key and the materialized icon so a
     /// user who turns Windows notifications off leaves no registration
-    /// footprint behind. A missing key counts as success.
+    /// footprint behind. A missing key counts as success. The id is
+    /// validated first: deletion derives a registry path from it, and an
+    /// id carrying a separator, control character, or trailing empty string
+    /// must never reach `RegDeleteTreeW`.
     pub fn remove_registration(app: &ToastApp) -> Result<(), String> {
         use windows_sys::Win32::System::Registry::{RegDeleteTreeW, HKEY_CURRENT_USER};
 
+        validate_app_user_model_id(&app.app_user_model_id)?;
         let subkey = app_user_model_id_registry_subkey(&app.app_user_model_id);
         const ERROR_FILE_NOT_FOUND: u32 = 2;
         let result = unsafe { RegDeleteTreeW(HKEY_CURRENT_USER, subkey.as_ptr()) };
@@ -313,10 +345,20 @@ mod tests {
         }
         assert!(validate_app_user_model_id("").is_err());
         assert!(validate_app_user_model_id("com example app").is_err());
+        // Whitespace beyond the plain space, control characters (including
+        // the NUL that would truncate the registry path), and separators
+        // that would escape the AppUserModelId branch.
+        for id in ["com\texample", "com\nexample", "com.example\0app", "com\\example", "com/example"] {
+            assert!(validate_app_user_model_id(id).is_err(), "must reject {id:?}");
+        }
         let too_long = "a".repeat(MAX_APP_USER_MODEL_ID_LEN + 1);
         assert!(validate_app_user_model_id(&too_long).is_err());
         let boundary = "a".repeat(MAX_APP_USER_MODEL_ID_LEN);
         assert!(validate_app_user_model_id(&boundary).is_ok());
+        // Length is measured in UTF-16 code units: 65 surrogate pairs are
+        // 130 units even though they are only 65 chars.
+        assert!(validate_app_user_model_id(&"😀".repeat(65)).is_err());
+        assert!(validate_app_user_model_id(&"😀".repeat(64)).is_ok());
     }
 
     #[test]
@@ -348,6 +390,14 @@ mod tests {
         // Identical content: still succeeds and leaves the file in place.
         materialize_icon(&icon).expect("materialize identical");
         assert_eq!(std::fs::read(&path).unwrap(), b"brand-icon-bytes");
+
+        // The rewrite goes through a temporary file; nothing may linger.
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "no temporary file residue");
     }
 
     #[test]
@@ -391,6 +441,22 @@ mod tests {
             icon: None,
         };
         remove_registration(&app).expect("missing key must not be an error");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn remove_registration_rejects_ids_that_would_escape_the_registry_branch() {
+        for id in ["", "com.example\\nested", "com.example\0app"] {
+            let app = ToastApp {
+                app_user_model_id: id.to_string(),
+                display_name: "desktop-notify test".to_string(),
+                icon: None,
+            };
+            assert!(
+                remove_registration(&app).is_err(),
+                "deletion must refuse the id {id:?} without touching the registry"
+            );
+        }
     }
 
     #[cfg(not(windows))]

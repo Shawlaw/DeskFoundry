@@ -48,3 +48,7 @@ cargo xwin build --target x86_64-pc-windows-msvc --release
 - `desktop-i18n`
 - `desktop-logger`
 - `desktop-updater`
+
+Additional DeskFoundry crates can be added the same way with a one-line
+local path dependency — for example `desktop-notify` for portable Windows
+toast notifications.

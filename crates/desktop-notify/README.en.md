@@ -97,6 +97,9 @@ on Tauri — the name only marks its origin). Registry and COM calls use
 
 ## Changelog
 
-- v0.1.0: initial public capability — AUMID validation, HKCU registration,
-  icon materialization with byte-compare updates, WinRT toast send with
+- v0.1.0: initial public capability — AUMID validation (at most 128 UTF-16
+  code units; rejects whitespace, control characters, and path separators),
+  HKCU registration,
+  icon materialization with byte-compare updates via write-then-rename,
+  WinRT toast send with
   built-in COM apartment handling, removal cleanup, non-Windows stubs.
