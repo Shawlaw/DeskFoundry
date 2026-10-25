@@ -31,7 +31,8 @@ HKCU\Software\Classes\AppUserModelId\<AUMID>
 
 ## AUMID 约束
 
-- 长度不超过 128 个 UTF-16 字符；不能包含空白、控制字符或路径分隔符（正反斜杠）——
+- 长度不超过 128 个 UTF-16 码元（code unit，非 BMP 字符每个占 2 个码元）；不能包含
+  空白、控制字符或路径分隔符（正反斜杠）——
   分隔符会逃逸出 `AppUserModelId` 注册表分支，控制字符（尤其 NUL）会截断传给注册表
   API 的路径。`desktop-notify` 的校验比微软“不含空格”的官方措辞更严，就是为了挡住
   这两类输入。

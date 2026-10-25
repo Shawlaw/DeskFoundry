@@ -27,6 +27,7 @@
 //! and integration checklist.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Windows requires AppUserModelIDs of at most 128 UTF-16 code units.
 pub const MAX_APP_USER_MODEL_ID_LEN: usize = 128;
@@ -103,6 +104,12 @@ fn icon_file_path(icon: &ToastIcon) -> PathBuf {
     icon.cache_dir.join(TOAST_ICON_FILE_NAME)
 }
 
+// Temporary icon writes carry a per-call sequence number on top of the pid:
+// two threads materializing concurrently within one process must never
+// share a temp path, or one thread's rename could fail and drop the icon
+// for that toast.
+static ICON_WRITE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
 /// Materializes the brand icon so the registry `IconUri` and the toast can
 /// reference a stable on-disk file. The file is rewritten only when its
 /// bytes differ from `icon.png` (a length check alone misses same-size icon
@@ -117,9 +124,11 @@ fn materialize_icon(icon: &ToastIcon) -> Option<PathBuf> {
         return Some(path);
     }
     std::fs::create_dir_all(&icon.cache_dir).ok()?;
-    let temp = icon
-        .cache_dir
-        .join(format!(".{TOAST_ICON_FILE_NAME}.tmp-{}", std::process::id()));
+    let temp = icon.cache_dir.join(format!(
+        ".{TOAST_ICON_FILE_NAME}.tmp-{}-{}",
+        std::process::id(),
+        ICON_WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed),
+    ));
     let written = (|| -> Option<()> {
         std::fs::write(&temp, icon.png).ok()?;
         std::fs::rename(&temp, &path).ok()?;
@@ -132,15 +141,47 @@ fn materialize_icon(icon: &ToastIcon) -> Option<PathBuf> {
     Some(path)
 }
 
+// Public entry points validate the AppUserModelID before dispatching, so an
+// invalid id is refused identically on every platform; the platform modules
+// can then assume a well-formed id.
 #[cfg(windows)]
-pub use windows_impl::{ensure_registration, remove_registration, show};
+use windows_impl as platform;
 
 #[cfg(not(windows))]
-pub use other_platform::{ensure_registration, remove_registration, show};
+use other_platform as platform;
+
+/// Idempotently registers the app's toast identity in HKCU, updating
+/// `DisplayName` / `IconUri` when the key already exists. Icon
+/// materialization failures are tolerated: registration then omits
+/// `IconUri`.
+pub fn ensure_registration(app: &ToastApp) -> Result<(), String> {
+    validate_app_user_model_id(&app.app_user_model_id)?;
+    platform::ensure_registration(app)
+}
+
+/// Sends one toast. Registration is ensured first, so callers need no
+/// separate setup step. The underlying WinRT toast object is not `Send`:
+/// create and send it on the same thread, which this function's signature
+/// guarantees.
+pub fn show(app: &ToastApp, message: &ToastMessage<'_>) -> Result<(), String> {
+    validate_app_user_model_id(&app.app_user_model_id)?;
+    platform::show(app, message)
+}
+
+/// Removes the HKCU AppUserModelID key and the materialized icon so a user
+/// who turns Windows notifications off leaves no registration footprint
+/// behind. A missing key counts as success. Deletion derives a registry
+/// path from the id, which is why validation happens before dispatch: an
+/// id carrying a separator, control character, or empty string must never
+/// reach the registry API.
+pub fn remove_registration(app: &ToastApp) -> Result<(), String> {
+    validate_app_user_model_id(&app.app_user_model_id)?;
+    platform::remove_registration(app)
+}
 
 #[cfg(windows)]
 mod windows_impl {
-    use super::{materialize_icon, validate_app_user_model_id, ToastApp, ToastMessage};
+    use super::{materialize_icon, ToastApp, ToastMessage};
 
     // The HKCU subkey holding one build's AppUserModelID registration. Null-
     // terminated UTF-16 as the registry APIs expect.
@@ -230,12 +271,8 @@ mod windows_impl {
         Ok(())
     }
 
-    /// Idempotently registers the app's toast identity in HKCU, updating
-    /// `DisplayName` / `IconUri` when the key already exists. Icon
-    /// materialization failures are tolerated: registration then omits
-    /// `IconUri`.
+    // The dispatcher already validated the id.
     pub fn ensure_registration(app: &ToastApp) -> Result<(), String> {
-        validate_app_user_model_id(&app.app_user_model_id)?;
         let icon_path = app.icon.as_ref().and_then(materialize_icon);
         ensure_registration_impl(
             icon_path.as_deref(),
@@ -244,10 +281,6 @@ mod windows_impl {
         )
     }
 
-    /// Sends one toast. Registration is ensured first, so callers need no
-    /// separate setup step. The underlying WinRT toast object is not `Send`:
-    /// create and send it on the same thread, which this function's
-    /// signature guarantees.
     pub fn show(app: &ToastApp, message: &ToastMessage<'_>) -> Result<(), String> {
         use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 
@@ -265,7 +298,6 @@ mod windows_impl {
         }
 
         let result = (|| {
-            validate_app_user_model_id(&app.app_user_model_id)?;
             ensure_registration(app)?;
             let mut toast =
                 tauri_winrt_notification::Toast::new(&app.app_user_model_id).title(message.title);
@@ -284,16 +316,11 @@ mod windows_impl {
         result
     }
 
-    /// Removes the HKCU AppUserModelID key and the materialized icon so a
-    /// user who turns Windows notifications off leaves no registration
-    /// footprint behind. A missing key counts as success. The id is
-    /// validated first: deletion derives a registry path from it, and an
-    /// id carrying a separator, control character, or trailing empty string
-    /// must never reach `RegDeleteTreeW`.
+    // The dispatcher already validated the id, keeping it away from the
+    // registry path derivation below.
     pub fn remove_registration(app: &ToastApp) -> Result<(), String> {
         use windows_sys::Win32::System::Registry::{RegDeleteTreeW, HKEY_CURRENT_USER};
 
-        validate_app_user_model_id(&app.app_user_model_id)?;
         let subkey = app_user_model_id_registry_subkey(&app.app_user_model_id);
         const ERROR_FILE_NOT_FOUND: u32 = 2;
         let result = unsafe { RegDeleteTreeW(HKEY_CURRENT_USER, subkey.as_ptr()) };
@@ -308,7 +335,9 @@ mod windows_impl {
 }
 
 // Nothing is registered outside Windows, so registration and removal
-// trivially succeed and sending reports the platform limitation.
+// trivially succeed and sending reports the platform limitation. The
+// dispatcher has already validated the AppUserModelID by the time these
+// run, keeping the invalid-id contract identical across platforms.
 #[cfg(not(windows))]
 mod other_platform {
     use super::{ToastApp, ToastMessage};
@@ -461,7 +490,7 @@ mod tests {
 
     #[cfg(not(windows))]
     #[test]
-    fn non_windows_stubs_register_nothing_and_refuse_to_send() {
+    fn non_windows_stubs_match_the_windows_validation_contract() {
         let app = ToastApp {
             app_user_model_id: "com.example.app".to_string(),
             display_name: "Example".to_string(),
@@ -470,5 +499,20 @@ mod tests {
         assert!(ensure_registration(&app).is_ok());
         assert!(remove_registration(&app).is_ok());
         assert!(show(&app, &ToastMessage { title: "t", text: "x", secondary: None }).is_err());
+
+        // Validation happens before platform dispatch, so an invalid id is
+        // refused identically on non-Windows builds.
+        for id in ["", "com.example\\nested", "com.example\0app"] {
+            let invalid = ToastApp {
+                app_user_model_id: id.to_string(),
+                ..app.clone()
+            };
+            assert!(ensure_registration(&invalid).is_err(), "ensure must reject {id:?}");
+            assert!(remove_registration(&invalid).is_err(), "remove must reject {id:?}");
+            assert!(
+                show(&invalid, &ToastMessage { title: "t", text: "x", secondary: None }).is_err(),
+                "show must reject {id:?}"
+            );
+        }
     }
 }

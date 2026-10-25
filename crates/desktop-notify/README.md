@@ -52,7 +52,7 @@ AUMID 在产品生命周期内必须保持稳定（Windows 通知设置按它分
 pub fn validate_app_user_model_id(id: &str) -> Result<(), String>;
 ```
 
-校验 Windows 约束：非空、不超过 128 个 UTF-16 字符，且不含空白、控制字符与路径分隔符（`\`、`/` 会逃逸出 AppUserModelId 注册表分支，控制字符会截断注册表路径，因此比微软"不含空格"的措辞更严格）。
+校验 Windows 约束：非空、不超过 128 个 UTF-16 码元（code unit），且不含空白、控制字符与路径分隔符（`\`、`/` 会逃逸出 AppUserModelId 注册表分支，控制字符会截断注册表路径，因此比微软"不含空格"的措辞更严格）。
 
 ### `ensure_registration`
 
@@ -118,5 +118,5 @@ Windows 侧使用 [`tauri-winrt-notification`](https://docs.rs/tauri-winrt-notif
 
 ## 更新记录
 
-- v0.1.0：初始公开能力 —— AUMID 校验（≤128 个 UTF-16 字符；拒绝空白、控制字符与路径分隔符）、HKCU 注册、图标物化（按字节比较更新、临时文件 + rename 原子替换）、
+- v0.1.0：初始公开能力 —— AUMID 校验（≤128 个 UTF-16 码元；拒绝空白、控制字符与路径分隔符）、HKCU 注册、图标物化（按字节比较更新、临时文件 + rename 原子替换）、
   WinRT toast 发送（内置 COM 套间处理）、注销清理、非 Windows stub。
