@@ -53,7 +53,7 @@ Current initial SDK versions:
 - `desktop-egui` — `0.1.0`
 - `desktop-i18n` — `0.1.0`
 - `desktop-fs` — `0.1.1`
-- `desktop-notify` — `0.1.0`
+- `desktop-notify` — `0.1.1`
 
 ## Local development
 

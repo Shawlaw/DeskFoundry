@@ -14,7 +14,7 @@ the background).
 
 ## Version
 
-- Current version: **0.1.0**
+- Current version: **0.1.1**
 
 ## Design boundaries
 
@@ -97,6 +97,9 @@ on Tauri — the name only marks its origin). Registry and COM calls use
 
 ## Changelog
 
+- v0.1.1: fixed a crash on the second toast sent from the same thread caused
+  by repeatedly initializing and uninitializing COM; the apartment is now
+  retained per thread and released at thread exit when owned.
 - v0.1.0: initial public capability — AUMID validation (at most 128 UTF-16
   code units; rejects whitespace, control characters, and path separators),
   HKCU registration,

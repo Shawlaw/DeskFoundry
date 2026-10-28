@@ -11,7 +11,7 @@
 
 ## 版本
 
-- 当前版本：**0.1.0**
+- 当前版本：**0.1.1**
 
 ## 设计边界
 
@@ -118,5 +118,7 @@ Windows 侧使用 [`tauri-winrt-notification`](https://docs.rs/tauri-winrt-notif
 
 ## 更新记录
 
+- v0.1.1：修复同一线程第二次发送 toast 时可能因 COM 重复初始化 / 清理而崩溃的问题；
+  COM 套间现在按线程持有，并在线程退出时按需清理。
 - v0.1.0：初始公开能力 —— AUMID 校验（≤128 个 UTF-16 码元；拒绝空白、控制字符与路径分隔符）、HKCU 注册、图标物化（按字节比较更新、临时文件 + rename 原子替换）、
   WinRT toast 发送（内置 COM 套间处理）、注销清理、非 Windows stub。

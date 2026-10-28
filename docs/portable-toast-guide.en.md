@@ -23,7 +23,10 @@ non-Windows platforms the crate compiles as a stub).
   (not just length) before rewriting, and treat icon failure as non-fatal — register and
   send without `IconUri` instead.
 - `show` initializes a COM apartment (`CoInitializeEx(MTA)`, tolerating
-  `RPC_E_CHANGED_MODE`) on the calling thread; the underlying toast object is not `Send`,
+  `RPC_E_CHANGED_MODE`) once per calling thread and releases it at thread
+  exit when owned; repeatedly initializing and uninitializing COM around
+  each toast can crash the WinRT backend on the second send. The underlying
+  toast object is not `Send`,
   so create and send on the same thread. `show` re-ensures registration idempotently.
 - When the user turns notifications off, remove the registration key tree and the
   materialized icon (`remove_registration`); a missing key counts as success.

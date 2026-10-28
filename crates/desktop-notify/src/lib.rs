@@ -281,39 +281,71 @@ mod windows_impl {
         )
     }
 
-    pub fn show(app: &ToastApp, message: &ToastMessage<'_>) -> Result<(), String> {
-        use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
+    // COM is initialized once per calling thread and released by the
+    // thread-local guard at thread exit. Reinitializing and uninitializing
+    // COM around every toast makes the WinRT backend crash on the second
+    // show on the same thread; retaining the apartment also matches the
+    // backend's process-lifetime notification objects.
+    struct ComApartment {
+        uninitialize_on_drop: bool,
+    }
+
+    impl Drop for ComApartment {
+        fn drop(&mut self) {
+            if self.uninitialize_on_drop {
+                unsafe { windows_sys::Win32::System::Com::CoUninitialize() };
+            }
+        }
+    }
+
+    thread_local! {
+        static COM_APARTMENT: std::cell::RefCell<Option<ComApartment>> =
+            const { std::cell::RefCell::new(None) };
+    }
+
+    fn ensure_com_apartment() -> Result<(), String> {
+        use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 
         // RPC_E_CHANGED_MODE as an unsigned HRESULT: the thread already joined a
         // different apartment model, which WinRT tolerates for toasts.
         const RPC_E_CHANGED_MODE: u32 = 0x8001_0106;
 
-        // WinRT toast calls need an apartment on the calling thread. S_FALSE
-        // (1) means the apartment already existed.
-        let coinit = unsafe { CoInitializeEx(std::ptr::null(), COINIT_MULTITHREADED as u32) };
-        let need_uninitialize = coinit == 0 || coinit == 1;
-        if coinit < 0 && (coinit as u32) != RPC_E_CHANGED_MODE {
-            let hresult = coinit as u32;
-            return Err(format!("CoInitializeEx failed: HRESULT 0x{hresult:08X}"));
-        }
-
-        let result = (|| {
-            ensure_registration(app)?;
-            let mut toast =
-                tauri_winrt_notification::Toast::new(&app.app_user_model_id).title(message.title);
-            toast = toast.text1(message.text);
-            if let Some(secondary) = message.secondary {
-                toast = toast.text2(secondary);
+        COM_APARTMENT.with(|slot| {
+            if slot.borrow().is_some() {
+                return Ok(());
             }
-            toast
-                .show()
-                .map_err(|error| format!("toast failed: {error}"))
-        })();
+            // S_OK means this call initialized the apartment and therefore
+            // owns one CoUninitialize; S_FALSE means it already existed.
+            let coinit = unsafe { CoInitializeEx(std::ptr::null(), COINIT_MULTITHREADED as u32) };
+            if coinit == 0 || coinit == 1 {
+                *slot.borrow_mut() = Some(ComApartment {
+                    uninitialize_on_drop: coinit == 0,
+                });
+                return Ok(());
+            }
+            if (coinit as u32) == RPC_E_CHANGED_MODE {
+                *slot.borrow_mut() = Some(ComApartment {
+                    uninitialize_on_drop: false,
+                });
+                return Ok(());
+            }
+            let hresult = coinit as u32;
+            Err(format!("CoInitializeEx failed: HRESULT 0x{hresult:08X}"))
+        })
+    }
 
-        if need_uninitialize {
-            unsafe { CoUninitialize() };
+    pub fn show(app: &ToastApp, message: &ToastMessage<'_>) -> Result<(), String> {
+        ensure_com_apartment()?;
+        ensure_registration(app)?;
+        let mut toast =
+            tauri_winrt_notification::Toast::new(&app.app_user_model_id).title(message.title);
+        toast = toast.text1(message.text);
+        if let Some(secondary) = message.secondary {
+            toast = toast.text2(secondary);
         }
-        result
+        toast
+            .show()
+            .map_err(|error| format!("toast failed: {error}"))
     }
 
     // The dispatcher already validated the id, keeping it away from the

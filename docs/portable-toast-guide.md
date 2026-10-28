@@ -55,8 +55,9 @@ HKCU\Software\Classes\AppUserModelId\<AUMID>
 ## COM 套间与线程
 
 - WinRT toast 调用要求调用线程已初始化 COM 套间。`desktop_notify::show` 会在发送
-  线程上调用 `CoInitializeEx(MTA)`，并容忍 `RPC_E_CHANGED_MODE`（线程已加入其他
-  套间模型，toast 仍可用），发送结束后按需 `CoUninitialize`。
+  线程首次使用时调用 `CoInitializeEx(MTA)`，并容忍 `RPC_E_CHANGED_MODE`（线程已加入其他
+  套间模型，toast 仍可用）；套间由线程本地守卫持有，并在线程退出时按需
+  `CoUninitialize`，避免连续发送时反复初始化 / 清理导致 WinRT 后端崩溃。
 - 底层 `Toast` 对象不是 `Send`：必须**在同一线程内创建并发送**。crate 的 `show`
   签名保证了这一点；应用如果用后台线程投递，就在该线程内完整调用 `show`。
 
